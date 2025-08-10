@@ -3,12 +3,13 @@ package dev.rollczi.litegration.paper;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import org.yaml.snakeyaml.Yaml;
 
-public final class PluginNameReader {
+final class PluginNameReader {
 
     private PluginNameReader() {
     }
@@ -30,17 +31,22 @@ public final class PluginNameReader {
         }
 
         try (InputStream is = jarFile.getInputStream(pluginYaml)) {
-            Properties properties = new Properties();
-            properties.load(is);
-            String name = properties.getProperty("name");
-            if (name != null && !name.isEmpty()) {
-                return Optional.of(name);
+            Yaml yaml = new Yaml();
+            Map<String, Object> data = yaml.load(is);
+
+            if (data != null && data.containsKey("name")) {
+                Object nameObj = data.get("name");
+                if (nameObj instanceof String name) {
+                    if (!name.isEmpty()) {
+                        return Optional.of(name);
+                    }
+                }
             }
+
+            throw new IllegalArgumentException(fileName + " does not contain a valid 'name' entry.");
         } catch (IOException exception) {
             throw new RuntimeException(exception);
         }
-
-        return Optional.empty();
     }
 
 }

@@ -1,0 +1,4 @@
+name: LockLitegrationPlugin
+version: 1.0.0
+main: dev.rollczi.litegration.paper.lock.LockLitegrationPlugin
+api-version: '1.19'

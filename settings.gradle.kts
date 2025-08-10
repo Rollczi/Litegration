@@ -1,4 +1,8 @@
 rootProject.name = "Litegration"
-include(":litegration-gradle-plugin")
-include(":litegration-junit-paper-api")
+
+include(":litegration-api")
+include(":litegration-client-api")
+include(":litegration-client-mcprotocollib")
+include(":litegration-gradle-plugin-paper")
+include(":litegration-junit-api")
 include(":litegration-junit-paper-engine")
