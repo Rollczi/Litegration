@@ -3,7 +3,6 @@ plugins {
     `litegration-publish`
 }
 
-
 dependencies {
     api(project(":litegration-api"))
     api(project(":litegration-junit-api"))
