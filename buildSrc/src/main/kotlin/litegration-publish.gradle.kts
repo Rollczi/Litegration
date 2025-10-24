@@ -6,74 +6,28 @@ plugins {
 group = "dev.rollczi"
 version = "0.1.0"
 
-publishing {
-    java {
-        withSourcesJar()
-        withJavadocJar()
-    }
-
-    repositories {
-        mavenLocal()
-        maven(
-            name = "eternalcode",
-            url = "https://repo.eternalcode.pl",
-            username = "ETERNAL_CODE_MAVEN_USERNAME",
-            password = "ETERNAL_CODE_MAVEN_PASSWORD",
-            snapshots = true,
-            beta = true,
-        )
-    }
+java {
+    withSourcesJar()
+    withJavadocJar()
 }
 
-fun RepositoryHandler.maven(
-    name: String,
-    url: String,
-    username: String,
-    password: String,
-    snapshots: Boolean = true,
-    beta: Boolean = false
-) {
-    val isSnapshot = version.toString().endsWith("-SNAPSHOT")
+publishing {
+    repositories {
+        val isSnapshot = version.toString().endsWith("-SNAPSHOT")
+        maven {
+            url = if (isSnapshot) uri("https://repo.eternalcode.pl/snapshots")
+                else uri("https://repo.eternalcode.pl/releases")
 
-    if (isSnapshot && !snapshots) {
-        return
-    }
-
-    val isBeta = version.toString().contains("-BETA")
-
-    if (isBeta && !beta) {
-        return
-    }
-
-    this.maven {
-        this.name =
-            if (isSnapshot) "${name}Snapshots"
-            else "${name}Releases"
-
-        this.url =
-            if (isSnapshot) uri("$url/snapshots")
-            else uri("$url/releases")
-
-        this.credentials {
-            this.username = System.getenv(username)
-            this.password = System.getenv(password)
+            credentials {
+                username = System.getenv("ETERNAL_CODE_MAVEN_USERNAME")
+                password = System.getenv("ETERNAL_CODE_MAVEN_PASSWORD")
+            }
         }
     }
-}
 
-interface LitePublishExtension {
-    var artifactId: String
-}
-
-val extension = extensions.create<LitePublishExtension>("litecommandsPublish")
-
-afterEvaluate {
-    publishing {
-        publications {
-            create<MavenPublication>("maven") {
-                artifactId = extension.artifactId
-                from(project.components["java"])
-            }
+    publications {
+        create<MavenPublication>("maven") {
+            from(project.components["java"])
         }
     }
 }

@@ -4,6 +4,7 @@ plugins {
 
 repositories {
     mavenCentral()
+    gradlePluginPortal()
     maven("https://hub.spigotmc.org/nexus/content/repositories/snapshots/")
     maven("https://repo.opencollab.dev/maven-releases")
 }

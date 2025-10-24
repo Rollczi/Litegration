@@ -9,19 +9,18 @@ version = "0.1.0"
 
 repositories {
     mavenCentral()
-    gradlePluginPortal()
-    mavenLocal()
 }
-
 
 publishing {
     repositories {
+        val isSnapshot = version.toString().endsWith("-SNAPSHOT")
         maven {
-            name = "CompanyRepo"
-            url = uri(System.getenv("MY_MAVEN_URL") ?: "https://my.repo/repository/maven-releases/")
+            url = if (isSnapshot) uri("https://repo.eternalcode.pl/snapshots")
+                else uri("https://repo.eternalcode.pl/releases")
+
             credentials {
-                username = findProperty("repoUser") as String? ?: System.getenv("REPO_USER")
-                password = findProperty("repoPassword") as String? ?: System.getenv("REPO_PASSWORD")
+                username = System.getenv("ETERNAL_CODE_MAVEN_USERNAME")
+                password = System.getenv("ETERNAL_CODE_MAVEN_PASSWORD")
             }
         }
     }
