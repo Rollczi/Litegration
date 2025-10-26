@@ -33,7 +33,7 @@ class LitegrationPlugin : Plugin<Project> {
             task.outputs.upToDateWhen { false }
         }.get()
 
-        val litegrationVersion = "0.1.0"
+        val litegrationVersion = "0.2.0"
         dependencies.add("${sourcesName}Implementation", "dev.rollczi:litegration-api:$litegrationVersion")
         dependencies.add("${sourcesName}Implementation", "dev.rollczi:litegration-junit-api:$litegrationVersion")
         dependencies.add("${sourcesName}Implementation", "dev.rollczi:litegration-junit-${platform}-engine:$litegrationVersion")
