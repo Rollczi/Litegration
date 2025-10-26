@@ -31,6 +31,10 @@ public class LockPluginAccessor {
         clientReady.complete(true);
     }
 
+    public String getPluginName() {
+        return LockLitegrationPlugin.class.getSimpleName();
+    }
+
     public static ClassLoader waitForPluginClassLoader(ServerInstance server, String pluginName) {
         while (true) {
             try {
@@ -92,5 +96,4 @@ public class LockPluginAccessor {
         }
         jos.closeEntry();
     }
-
 }

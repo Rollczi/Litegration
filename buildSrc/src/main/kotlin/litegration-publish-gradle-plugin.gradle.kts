@@ -4,9 +4,6 @@ plugins {
     id("maven-publish")
 }
 
-group = "dev.rollczi"
-version = "0.1.0"
-
 repositories {
     mavenCentral()
 }

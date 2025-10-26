@@ -2,6 +2,7 @@ package dev.rollczi.litegration.paper;
 
 import dev.rollczi.litegration.Litegration;
 import dev.rollczi.litegration.junit.LitegrationTest;
+import dev.rollczi.litegration.paper.reflect.ReflectUtil;
 import dev.rollczi.litegration.paper.server.ServerInstance;
 import dev.rollczi.litegration.paper.classloader.RuntimeBridgeClassLoader;
 import dev.rollczi.litegration.paper.downloader.PaperServerDownloader;
@@ -25,8 +26,10 @@ import org.junit.platform.engine.EngineDiscoveryRequest;
 import org.junit.platform.engine.ExecutionRequest;
 import org.junit.platform.engine.TestDescriptor;
 import org.junit.platform.engine.TestEngine;
+import static org.junit.platform.engine.TestExecutionResult.*;
 import org.junit.platform.engine.UniqueId;
 import org.junit.platform.engine.discovery.ClassSelector;
+import org.junit.platform.engine.support.discovery.DiscoveryIssueReporter;
 
 public class JunitPaperTestEngine implements TestEngine {
 
@@ -44,15 +47,18 @@ public class JunitPaperTestEngine implements TestEngine {
     }
 
     @Override
-    public TestDescriptor discover(EngineDiscoveryRequest discoveryRequest, UniqueId uniqueId) {
+    public TestDescriptor discover(EngineDiscoveryRequest request, UniqueId uniqueId) {
         JupiterConfiguration configuration = new CachingJupiterConfiguration(new DefaultJupiterConfiguration(
-            discoveryRequest.getConfigurationParameters(), discoveryRequest.getOutputDirectoryProvider()));
+            request.getConfigurationParameters(),
+            request.getOutputDirectoryCreator(),
+            DiscoveryIssueReporter.forwarding(request.getDiscoveryListener(), uniqueId)
+        ));
         JupiterEngineDescriptor engineDescriptor = new JupiterEngineDescriptor(uniqueId, configuration);
 
-        for (ClassSelector selector : discoveryRequest.getSelectorsByType(ClassSelector.class)) {
-            Class<?> testClass = reloadClass(selector.getJavaClass());
+        for (ClassSelector selector : request.getSelectorsByType(ClassSelector.class)) {
+            Class<?> testClass = selector.getJavaClass();
             List<Method> paperTests = Stream.of(testClass.getDeclaredMethods())
-                .filter(method -> method.isAnnotationPresent(reloadClass(LitegrationTest.class)))
+                .filter(method -> method.isAnnotationPresent(LitegrationTest.class))
                 .toList();
 
             if (paperTests.isEmpty()) {
@@ -78,18 +84,21 @@ public class JunitPaperTestEngine implements TestEngine {
         return engineDescriptor;
     }
 
-    @SuppressWarnings("unchecked")
-    private <T> Class<T> reloadClass(Class<T> appClass) {
-        String className = appClass.getName();
-        try {
-            return (Class<T>) bridgeClassLoader.loadClass(className);
-        } catch (ClassNotFoundException exception) {
-            throw new RuntimeException(exception);
-        }
-    }
 
     @Override
     public void execute(ExecutionRequest request) {
+        try {
+            tryExecute(request);
+        } catch (Throwable throwable) {
+            request.getEngineExecutionListener().executionFinished(
+                request.getRootTestDescriptor(),
+                failed(throwable)
+            );
+            throw throwable;
+        }
+    }
+
+    private void tryExecute(ExecutionRequest request) {
         Path testedPluginJar = resolvePlugin();
         LockPluginAccessor lock = LockPluginAccessor.createJar();
         int port = PortUtil.findFreePort();
@@ -105,11 +114,63 @@ public class JunitPaperTestEngine implements TestEngine {
             lock.waitServerLoad(serverInstance);
             ClassLoader testedPluginClassLoader = serverInstance.findPluginClassLoader(PluginNameReader.read(testedPluginJar))
                 .orElseThrow(() -> new RuntimeException("Failed to find plugin class loader for: " + testedPluginJar));
-            Runnable deinitializer = Litegration.initialize("localhost", port);
             bridgeClassLoader.withRuntimeLoader(testedPluginClassLoader);
-            baseEngine.execute(request);
-            deinitializer.run();
+            serverInstance.runInMainThread(() -> {
+                Runnable deinitializer = Litegration.initialize("localhost", port);
+                baseEngine.execute(remapRequest(request));
+                deinitializer.run();
+            }, lock.getPluginName());
         }
+    }
+
+    private ExecutionRequest remapRequest(ExecutionRequest request) {
+        JupiterEngineDescriptor original = (JupiterEngineDescriptor) request.getRootTestDescriptor();
+        JupiterConfiguration configuration = original.getConfiguration();
+        JupiterEngineDescriptor reloaded = new JupiterEngineDescriptor(original.getUniqueId(), configuration);
+
+        for (TestDescriptor child : original.getChildren()) {
+            if (!(child instanceof ClassTestDescriptor originalClass)) {
+                throw new RuntimeException("Unexpected child class descriptor: " + child.getClass());
+            }
+
+            Class<?> runtimedClass = ReflectUtil.getClass(bridgeClassLoader, originalClass.getTestClass().getName());
+            TestDescriptor reloadedClass = new ClassTestDescriptor(
+                originalClass.getUniqueId(),
+                runtimedClass,
+                configuration
+            );
+
+            for (TestDescriptor classChild : originalClass.getChildren()) {
+                if (!(classChild instanceof TestMethodTestDescriptor originalMethod)) {
+                    throw new RuntimeException("Unexpected method descriptor: " + classChild.getClass());
+                }
+
+                Method reloadedMethod = ReflectUtil.getMethod(
+                    runtimedClass,
+                    originalMethod.getTestMethod().getName(),
+                    originalMethod.getTestMethod().getParameterTypes()
+                );
+
+                reloadedClass.addChild(new TestMethodTestDescriptor(
+                    originalMethod.getUniqueId(),
+                    runtimedClass,
+                    reloadedMethod,
+                    () -> List.of(),
+                    configuration
+                ));
+            }
+
+            reloaded.addChild(reloadedClass);
+        }
+
+        return ExecutionRequest.create(
+            reloaded,
+            request.getEngineExecutionListener(),
+            request.getConfigurationParameters(),
+            request.getOutputDirectoryCreator(),
+            request.getStore(),
+            request.getCancellationToken()
+        );
     }
 
     private static Path fetchServerJar() {

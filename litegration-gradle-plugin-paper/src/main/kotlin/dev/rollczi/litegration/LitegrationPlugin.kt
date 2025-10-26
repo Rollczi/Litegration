@@ -11,10 +11,10 @@ import org.gradle.plugins.ide.idea.model.IdeaModel
 class LitegrationPlugin : Plugin<Project> {
 
     override fun apply(project: Project): Unit = with(project) {
-        createSourceAndTask("paper", "testPaper")
+        createSourceAndTask("paper", "testPaper", "runTestPaper")
     }
 
-    private fun Project.createSourceAndTask(platform: String, sourcesName: String) {
+    private fun Project.createSourceAndTask(platform: String, sourcesName: String, workingDir: String) {
         val customSources = createSources(sourcesName)
 
         plugins.apply("idea")
@@ -29,7 +29,7 @@ class LitegrationPlugin : Plugin<Project> {
             task.testClassesDirs = customSources.output.classesDirs
             task.classpath = customSources.runtimeClasspath
             task.useJUnitPlatform()
-            task.workingDir(sourcesName)
+            task.workingDir(workingDir)
             task.outputs.upToDateWhen { false }
         }.get()
 
@@ -37,6 +37,7 @@ class LitegrationPlugin : Plugin<Project> {
         dependencies.add("${sourcesName}Implementation", "dev.rollczi:litegration-api:$litegrationVersion")
         dependencies.add("${sourcesName}Implementation", "dev.rollczi:litegration-junit-api:$litegrationVersion")
         dependencies.add("${sourcesName}Implementation", "dev.rollczi:litegration-junit-${platform}-engine:$litegrationVersion")
+        dependencies.add("${sourcesName}Implementation", "org.junit.jupiter:junit-jupiter")
         dependencies.add("${sourcesName}RuntimeOnly", "org.junit.platform:junit-platform-launcher")
 
         afterEvaluate {

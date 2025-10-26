@@ -60,6 +60,9 @@ abstract class LitegrationTestTask : Test() {
         environment("LITEGRATION_EXTERNAL_PLUGINS", externalPlugins.get().joinToString("\n") { it.toPath().toString() })
         environment("LITEGRATION_SERVER_VERSION", serverVersion)
         environment("LITEGRATION_SERVER_PROPERTIES", serverProperties.get().entries.joinToString("\n") { "${it.key}=${it.value}" })
+        if (!workingDir.exists()) {
+            workingDir.mkdirs()
+        }
         super.executeTests()
     }
 

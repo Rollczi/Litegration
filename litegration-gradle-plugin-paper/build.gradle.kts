@@ -1,4 +1,5 @@
 plugins {
+    `litegration-java`
     `litegration-publish-gradle-plugin`
 }
 

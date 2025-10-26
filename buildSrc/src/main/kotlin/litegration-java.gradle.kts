@@ -2,6 +2,9 @@ plugins {
     id("java-library")
 }
 
+group = "dev.rollczi"
+version = "0.2.0"
+
 repositories {
     mavenCentral()
     gradlePluginPortal()
